@@ -85,23 +85,20 @@ def find_approximate_solution(A, D, sort_C_ind, start_C_index, C_prev):
     for k in range(start_C_index, n):
         j = sort_C_ind[k]
         if A[:, j].sum() == n:
-            C[j] = 255
+            C[j] = 0
+        elif all([R[i] & C[j] != C[j] for i in range(m) if A[i, j] == 0 and R[i] in D]):
+            pass
         else:
             C[j] = 1 << k
         for i in range(m):
             if A[i, j] == 1:
                 R[i] |= C[j]
                 if not any([R[i] & d == R[i] for d in D]):
-                    F = np.empty(shape=(m,n),dtype=bool)
-                    for i in range(m):
-                        for j in range(n):
-                            F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]
-                    return k, R, C, F, np.sum(F)/(n*m)
+                    return None
                 for jj in range(n):
                     if A[i, jj] == 1:
                         C[jj] &= R[i]
-    return R, C    
-    
+    return R, C
     
     
 print(find_approximate_solution(A, D, sort_C_ind, start_C_index - 4, C_prev))   
