@@ -302,7 +302,7 @@ A = np.array(
 
 def fitness(R, C, A):
     m, n = A.shape
-    return sum([R[i] & C[j] == C[j] for i in range(m) for j in range(n) if A[i, j] == 1])
+    return sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)])
 
 def crossover(R1, C1, R2, C2):
     m = len(R1)
@@ -418,7 +418,7 @@ A = np.array(
 
 def fitness(R, C, A):
     m, n = A.shape
-    return sum([R[i] & C[j] == C[j] for i in range(m) for j in range(n) if A[i, j] == 1])
+    return sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)])
 
 def generate_solution(A, D):
     m, n = A.shape
