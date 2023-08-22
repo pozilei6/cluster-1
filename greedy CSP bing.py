@@ -368,7 +368,128 @@ for r in R:
         
         
 
+########################################################################################################################### Artificial Bee Colony (ABC) algorithm ###########################
+# run in  https://www.onlinegdb.com/online_python_compiler
 
+import random
+import numpy as np 
+
+
+
+large_width = 400
+np.set_printoptions(linewidth=large_width)
+
+
+
+D = [7, 11, 19, 35, 67, 131, 13, 21, 37, 69, 133, 25, 41, 73, 137, 49, 81, 145, 97, 161, 193, 14, 22, 38,
+              70, 134, 26, 42, 74, 138, 50, 82, 146, 98, 162, 194, 28, 44, 76, 140, 52, 84, 148, 100, 164, 196, 56,
+              88, 152, 104, 168, 200, 112, 176, 208, 224]
+A = np.array(
+    [#1 2 3 4 5 6 7 8 9 10111213141516171819
+     [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1], # 1   d
+     [0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], # 2  d
+     [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0], # 3   d
+     [0,0,1,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,0], # 4  d
+     [1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,0], # 5 d
+     [0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,0,0], # 6   d
+     [0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0], # 7     d
+     [1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0], # 8 d
+     [0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,1,0,0], # 9   d
+     [0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0], # 10  d
+     [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0], # 11    d
+     [0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0], # 12  d
+     [1,0,0,0,0,0,0,0,1,1,1,0,0,0,1,0,0,0,0], # 13    d
+     [0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0], # 14    d
+     [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,1], # 15 d
+     [0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0], # 16   d
+     [0,0,0,0,1,0,1,1,0,1,0,1,0,0,1,0,1,0,0], # 17 d
+     [0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0], # 18 d
+     [1,0,1,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0], # 19 d
+     [0,0,0,0,0,1,1,0,1,0,0,0,0,1,1,0,0,0,0], # 20 d
+     [0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0], # 21  d
+     [0,0,0,0,0,1,0,0,1,0,1,0,0,0,1,0,0,0,0], # 22 d
+     [0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,0,0,0,1], # 23  d
+     [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,0], # 24 d
+     ],dtype = int)
+
+
+
+
+
+def fitness(R, C, A):
+    m, n = A.shape
+    return sum([R[i] & C[j] == C[j] for i in range(m) for j in range(n) if A[i, j] == 1])
+
+def generate_solution(A, D):
+    m, n = A.shape
+    R = [random.choice(D) for _ in range(m)]
+    C = [1 << random.randrange(8) for _ in range(n)]
+    return R, C
+
+def mutate_solution(R, C, D):
+    m = len(R)
+    n = len(C)
+    i = random.randrange(m)
+    R[i] = random.choice(D)
+    j = random.randrange(n)
+    C[j] = 1 << random.randrange(8)
+
+def find_approximate_solution(A, D):
+    m, n = A.shape
+    population_size = 2
+    num_iterations = 40
+    population_R = []
+    population_C = []
+    for _ in range(population_size):
+        R, C = generate_solution(A, D)
+        population_R.append(R)
+        population_C.append(C)
+    fitness_values = [fitness(population_R[i], population_C[i], A) for i in range(population_size)]
+    for iteration in range(num_iterations):
+        for i in range(population_size):
+            R_new = list(population_R[i])
+            C_new = list(population_C[i])
+            mutate_solution(R_new, C_new, D)
+            fitness_new = fitness(R_new, C_new, A)
+            if fitness_new > fitness_values[i]:
+                population_R[i] = R_new
+                population_C[i] = C_new
+                fitness_values[i] = fitness_new
+        best_index = max(range(population_size), key=lambda i: fitness_values[i])
+        for i in range(population_size):
+            if i != best_index:
+                R_new = list(population_R[best_index])
+                C_new = list(population_C[best_index])
+                mutate_solution(R_new, C_new, D)
+                fitness_new = fitness(R_new, C_new, A)
+                if fitness_new > fitness_values[i]:
+                    population_R[i] = R_new
+                    population_C[i] = C_new
+                    fitness_values[i] = fitness_new
+    best_index = max(range(population_size), key=lambda i: fitness_values[i])
+    best_R = population_R[best_index]
+    best_C = population_C[best_index]
+    return best_R[:], best_C[:]
+
+
+#execution
+R, C = find_approximate_solution(A, D)
+    
+print(R, C)
+
+m,n=A.shape
+F = np.empty(shape=(m,n),dtype=bool)
+for i in range(m):
+    for j in range(n):
+        F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]
+
+print(F, np.sum(F)/(n*m))    
+    
+print(all(r in set(D) for r in R))    #r all in D
+for r in R:
+    print(np.binary_repr(r, 8))    
+
+########################################################################################################################### Artificial Bee Colony (ABC) algorithm ###########################
 
 
 
