@@ -321,8 +321,8 @@ def mutate(R, C, D):
 
 def find_approximate_solution(A, D):
     m, n = A.shape
-    population_size = 100
-    num_generations = 1000
+    population_size = 30 #originally  100
+    num_generations = 40 #originally 1000  but better lower, can run few times as res changes much
     population_R = [[random.choice(D) for _ in range(m)] for _ in range(population_size)]
     population_C = [[1 << random.randrange(8) for _ in range(n)] for _ in range(population_size)]
     for generation in range(num_generations):
