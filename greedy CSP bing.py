@@ -1,6 +1,11 @@
 # run in  https://www.onlinegdb.com/online_python_compiler
 
 import numpy as np 
+large_width = 400
+np.set_printoptions(linewidth=large_width)
+
+
+
 D = [7, 11, 19, 35, 67, 131, 13, 21, 37, 69, 133, 25, 41, 73, 137, 49, 81, 145, 97, 161, 193, 14, 22, 38,
               70, 134, 26, 42, 74, 138, 50, 82, 146, 98, 162, 194, 28, 44, 76, 140, 52, 84, 148, 100, 164, 196, 56,
               88, 152, 104, 168, 200, 112, 176, 208, 224]
