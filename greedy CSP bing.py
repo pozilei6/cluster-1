@@ -344,7 +344,9 @@ def find_approximate_solution(A, D):
     best_C = population_C[0]
     return best_R[:], best_C[:]
     
-    
+
+
+
 R, C = find_approximate_solution(A, D)
     
 print(R, C)
@@ -354,8 +356,13 @@ F = np.empty(shape=(m,n),dtype=bool)
 for i in range(m):
     for j in range(n):
         F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]
+                                                     #how many pb constr cot fullfiled?
+print(F, np.sum(F)/(n*m))                            #np.sum(F)/(n*m) = 0.546 at current population_size = 100, num_generations = 1000,          0.638 at population_size = 100, num_generations = 1000
+    
+print(all(r in set(D) for r in R))    #r all in D
+for r in R:
+    print(np.binary_repr(r, 8))  
 
-print(F, np.sum(F)/(n*m))  #np.sum(F)/(n*m) = 0.546 at current population_size = 100, num_generations = 1000,          0.638 at population_size = 100, num_generations = 1000
 ##########################################################################################################################
         
         
