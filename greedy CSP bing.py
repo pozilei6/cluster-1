@@ -355,7 +355,7 @@ for i in range(m):
     for j in range(n):
         F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]
 
-print(F, np.sum(F)/(n*m))  #np.sum(F)/(n*m) = 0.546
+print(F, np.sum(F)/(n*m))  #np.sum(F)/(n*m) = 0.546 at current population_size = 100, num_generations = 1000,          0.638 at population_size = 100, num_generations = 1000
 ##########################################################################################################################
         
         
