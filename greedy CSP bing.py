@@ -1,6 +1,9 @@
 # run in  https://www.onlinegdb.com/online_python_compiler
 
 import numpy as np 
+
+
+
 large_width = 400
 np.set_printoptions(linewidth=large_width)
 
@@ -58,18 +61,52 @@ def find_approximate_solution(A, D):
                     for i in range(m):
                         for j in range(n):
                             F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]
-                    return F, R, C, np.sum(F)/(n*m)
+                    return k, R, C, F, np.sum(F)/(n*m)
                 for jj in range(n):
                     if A[i, jj] == 1:
                         C[jj] &= R[i]
     return R, C
-
-
-
-
-print(find_approximate_solution(A, D))
-
-
+    
+    
+print(find_approximate_solution(A, D))    
+start_C_index, R, C_prev, F, x = find_approximate_solution(A, D)   
+sort_C_ind = np.argsort(-A.sum(axis=0))
+    
+def find_approximate_solution(A, D, sort_C_ind, start_C_index, C_prev):
+    m, n = A.shape
+    R = [0] * m
+    C = [0] * n
+    for k in range(start_C_index):
+        C[sort_C_ind[k]] = C_prev[sort_C_ind[k]]
+    for i in range(m):
+        for k in range(start_C_index):
+            if A[i, sort_C_ind[k]] == 1:
+                R[i] |= C[sort_C_ind[k]]
+    for k in range(start_C_index, n):
+        j = sort_C_ind[k]
+        if A[:, j].sum() == n:
+            C[j] = 255
+        else:
+            C[j] = 1 << k
+        for i in range(m):
+            if A[i, j] == 1:
+                R[i] |= C[j]
+                if not any([R[i] & d == R[i] for d in D]):
+                    F = np.empty(shape=(m,n),dtype=bool)
+                    for i in range(m):
+                        for j in range(n):
+                            F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]
+                    return k, R, C, F, np.sum(F)/(n*m)
+                for jj in range(n):
+                    if A[i, jj] == 1:
+                        C[jj] &= R[i]
+    return R, C    
+    
+    
+    
+print(find_approximate_solution(A, D, sort_C_ind, start_C_index - 4, C_prev))   
+    
+# Must enforce different new value for C[start_C_index]   !!!, otherwise result is same
 
 
 
