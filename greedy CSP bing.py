@@ -493,8 +493,131 @@ for r in R:
 
 
 
+########## plotting by (population size, number of iterations) #############################################
 
 
+"""
+Quesion:
+I want to explore the effect of changing population_size and num_generations settings settings in your latest find_approximate_solution(A, D) (the one using ABC) (so, it's then find_approximate_solution(A, D, population_size, num_generations)).
+Can you add these two to parameter list. Write code that, for fixed instance A and D, iterates through population_size from 1 to 50, in steps of 5, and in inner loop num_generations from 1 to 60, in steps of 5, 
+and 3D-plots a measure of approximation ```python me```, computed by 
+```python
+R, C = find_approximate_solution(A, D, population_size, num_generations)
+m, n = A.shape
+F = np.empty(shape=(m,n),dtype=bool)
+for i in range(m):
+    for j in range(n):
+        F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]
+me = np.sum(F)/(n*m)
+```.
+So independent axes x, y are population_size, num_generations and dependent (resulting) axis is me. Show me the code with neccessary packages, e.g., sklearn, imported.
+"""
+
+# run in Colab
+
+import numpy as np 
+
+D = [7, 11, 19, 35, 67, 131, 13, 21, 37, 69, 133, 25, 41, 73, 137, 49, 81, 145, 97, 161, 193, 14, 22, 38,
+              70, 134, 26, 42, 74, 138, 50, 82, 146, 98, 162, 194, 28, 44, 76, 140, 52, 84, 148, 100, 164, 196, 56,
+              88, 152, 104, 168, 200, 112, 176, 208, 224]
+A = np.array(
+    [#1 2 3 4 5 6 7 8 9 10111213141516171819
+     [1,1,0,0,0,0,0], # 1   d
+     [1,0,1,0,1,0,0], # 2  d
+     [1,0,0,1,0,0,0], # 3   d
+     [1,0,0,0,1,0,0], # 4  d
+     [1,0,0,0,0,0,0], # 5 d
+     [0,0,0,1,0,1,0], # 6   d
+     [0,0,0,0,0,1,1], # 7     d
+     [0,0,0,1,0,1,0],
+     [0,1,0,0,0,0,1],
+     [1,0,0,0,0,1,1],
+     ],dtype = int)
+
+import random
+from mpl_toolkits import mplot3d
+import matplotlib.pyplot as plt
+
+def fitness(R, C, A):
+    m, n = A.shape
+    return sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)])
+
+def generate_solution(A, D):
+    m, n = A.shape
+    R = [random.choice(D) for _ in range(m)]
+    C = [1 << random.randrange(8) for _ in range(n)]
+    return R, C
+
+def mutate_solution(R, C, D):
+    m = len(R)
+    n = len(C)
+    i = random.randrange(m)
+    R[i] = random.choice(D)
+    j = random.randrange(n)
+    C[j] = 1 << random.randrange(8)
+
+def find_approximate_solution(A, D, population_size, num_iterations):
+    m, n = A.shape
+    population_R = []
+    population_C = []
+    for _ in range(population_size):
+        R, C = generate_solution(A, D)
+        population_R.append(R)
+        population_C.append(C)
+    fitness_values = [fitness(population_R[i], population_C[i], A) for i in range(population_size)]
+    for iteration in range(num_iterations):
+        for i in range(population_size):
+            R_new = list(population_R[i])
+            C_new = list(population_C[i])
+            mutate_solution(R_new, C_new, D)
+            fitness_new = fitness(R_new, C_new, A)
+            if fitness_new > fitness_values[i]:
+                population_R[i] = R_new
+                population_C[i] = C_new
+                fitness_values[i] = fitness_new
+        best_index = max(range(population_size), key=lambda i: fitness_values[i])
+        for i in range(population_size):
+            if i != best_index:
+                R_new = list(population_R[best_index])
+                C_new = list(population_C[best_index])
+                mutate_solution(R_new, C_new, D)
+                fitness_new = fitness(R_new, C_new, A)
+                if fitness_new > fitness_values[i]:
+                    population_R[i] = R_new
+                    population_C[i] = C_new
+                    fitness_values[i] = fitness_new
+    best_index = max(range(population_size), key=lambda i: fitness_values[i])
+    best_R = population_R[best_index]
+    best_C = population_C[best_index]
+    return best_R[:], best_C[:]
+
+A = ...
+D = ...
+x_vals = []
+y_vals = []
+z_vals = []
+for population_size in range(1, 51, 5):
+    for num_iterations in range(1, 61, 5):
+        R, C = find_approximate_solution(A, D, population_size, num_iterations)
+        m, n = A.shape
+        F = np.empty(shape=(m,n),dtype=bool)
+        for i in range(m):
+            for j in range(n):
+                F[i,j] =(R[i] & C[j] == C[j]) == A[i,j]
+        me=np.sum(F)/(n*m)
+        x_vals.append(population_size)
+        y_vals.append(num_iterations)
+        z_vals.append(me)
+
+fig=plt.figure()
+ax=plt.axes(projection='3d')
+ax.scatter3D(x_vals,y_vals,z_vals,c=z_vals,cmap='Reds')
+ax.set_xlabel('population size')
+ax.set_ylabel('number of iterations')
+ax.set_zlabel('approximation measure')
+plt.show()
+
+########## plotting #############################################
 
 
 
