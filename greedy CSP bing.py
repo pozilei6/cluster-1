@@ -393,8 +393,281 @@ def genetic_solver(A, D, H, b_le_S, b_le_H):
 R_int, C_int = genetic_solver(A, D, H, 16, 4)
 
 ##########################################################################################################################
+
+
+##########################################c constraints solver ###########################################################
+# run in colab
+
+from ortools.constraint_solver import pywrapcp
+from functools import reduce
+
+def solve_with_csp(A, D):
+    m, n = A.shape
+    max_fitness = m * n
+    defa = 2**21 - 1
+    
+    # Create the solver
+    solver = pywrapcp.Solver("solver")
+    
+    # Create the variables
+    R = [solver.IntVar(min(D), max(D), f"R_{i}") for i in range(m)]
+    
+    # Add the constraints
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+    solver.Add(sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)]) == m * n)
+    
+    # Find a solution
+    db = solver.Phase(R, solver.INT_VAR_SIMPLE, solver.INT_VALUE_SIMPLE)
+    solver.Solve(db)
+    
+    # Return the solution
+    return [int(R[i].Value()) for i in range(m)]
+
+# Example usage:
+R = solve_with_csp(A, D)
+C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+###########################################################################################################################
+
+
+
+########################################## finishing solver from approx solution ###########################################################
+from z3 import *
+
+def modify_solution(A, D, R_appr, fix_rate=0.7):
+    m, n = A.shape
+    max_fitness = m * n
+    defa = 2**21 - 1
+    
+    # Create the solver
+    solver = Solver()
+    
+    # Create the variables
+    R = [Int(f"R_{i}") for i in range(m)]
+    
+    # Add the constraints
+    for i in range(m):
+        solver.add(Or([R[i] == d for d in D]))
+        if random.random() < fix_rate:
+            solver.add(R[i] == R_appr[i])
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+    solver.add(sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)]) == m * n)
+    
+    # Check if a solution exists
+    if solver.check() == sat:
+        # Get the solution
+        model = solver.model()
+        R_sol = [model[R[i]].as_long() for i in range(m)]
+        return R_sol
+    else:
+        return None
+
+# Example usage:
+A = ...
+D = ...
+R_appr = ...
+fix_rate = 0.7
+R = modify_solution(A, D, R_appr, fix_rate)
+if R is not None:
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+########################################## finishing solver from approx solutionr ###########################################################
+
+
+
+########################################## iterate over finishing (with pso() -> R_appr  ############################################################################
+
+import numpy as np
+from functools import reduce
+from itertools import combinations
+import random
+
+def get_H(le, nbr_0s):
+    # Get all possible combinations of positions for the unset bits
+    unset_bits_positions = list(combinations(range(le), nbr_0s))
+    H = []
+    # Set all bits to 1
+    num = (1 << le) - 1
+    for positions in unset_bits_positions:
+        # Unset the bits at the specified positions
+        temp_num = num
+        for pos in positions:
+            temp_num &= ~(1 << pos)
+        H.append(temp_num)
+    return H
+
+def concat_two_codes(codes2,codes1,bit_len_2,bit_len_1):
+    shifted_codes2 = [c2 << bit_len_1 for c2 in codes2]
+    codes2_con_codes1 = [sh_c2 + c1 for sh_c2 in shifted_codes2 for c1 in codes1]    
+    return codes2_con_codes1
+    
+    
+
+D = [7, 11, 19, 35, 67, 131, 13, 21, 37, 69, 133, 25, 41, 73, 137, 49, 81, 145, 97, 161, 193, 14, 22, 38,
+              70, 134, 26, 42, 74, 138, 50, 82, 146, 98, 162, 194, 28, 44, 76, 140, 52, 84, 148, 100, 164, 196, 56,
+              88, 152, 104, 168, 200, 112, 176, 208, 224]
+D = concat_two_codes(D,D,8,8)
+H = get_H(3, 1)
+D = concat_two_codes(H,D,3,16)
+A = np.array(
+    [#1 2 3 4 5 6 7 8 9 10111213141516171819
+     [1,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,0,1], # 1   d
+     [0,0,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0], # 2  d
+     [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1], # 3   d
+     [0,0,1,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,0], # 4  d
+     [1,0,1,0,0,0,0,0,0,0,1,0,0,1,0,1,0,1,0], # 5 d
+     [0,0,0,0,0,0,0,1,0,0,0,0,1,0,1,0,1,0,0], # 6   d
+     [0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0], # 7     d
+     [1,0,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,0,0], # 8 d
+     [0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,1,0,0], # 9   d
+     [0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0], # 10  d
+     [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0], # 11    d
+     [0,0,1,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0], # 12  d
+     [1,0,0,0,0,0,0,0,1,1,1,0,0,0,1,0,0,0,0], # 13    d
+     [0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0], # 14    d
+     [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,1], # 15 d
+     ],dtype = int)
+
+
+m, n = A.shape
+
+import random
+import numpy as np
+
+def fitness(R, A):
+    m, n = A.shape
+    defa = 2**21 - 1
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+    return sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)])
+
+def pso(A, D, population_size=100, max_iterations=1000, w=0.9, c1=2, c2=2):
+    m, n = A.shape
+    max_fitness = m * n
+    defa = 2**21 - 1
+    
+    # Initialize the population
+    population = [random.sample(D, m) for _ in range(population_size)]
+    fitness_values = [fitness(individual, A) for individual in population]
+    
+    # Initialize the personal best positions and fitness values
+    pbest_positions = population[:]
+    pbest_fitness_values = fitness_values[:]
+    
+    # Initialize the global best position and fitness value
+    gbest_position = population[np.argmax(fitness_values)]
+    gbest_fitness_value = max(fitness_values)
+    
+    # Initialize the velocities
+    velocities = [[0] * m for _ in range(population_size)]
+    
+    for iteration in range(max_iterations):
+        # Update the velocities and positions
+        for i in range(population_size):
+            for j in range(m):
+                rp = random.random()
+                rg = random.random()
+                velocities[i][j] = w * velocities[i][j] + c1 * rp * (pbest_positions[i][j] - population[i][j]) + c2 * rg * (gbest_position[j] - population[i][j])
+                population[i][j] += int(velocities[i][j])
+                population[i][j] = max(min(population[i][j], max(D)), min(D))
         
+        # Evaluate the fitness of the population
+        fitness_values = [fitness(individual, A) for individual in population]
         
+        # Update the personal best positions and fitness values
+        for i in range(population_size):
+            if fitness_values[i] > pbest_fitness_values[i]:
+                pbest_positions[i] = population[i]
+                pbest_fitness_values[i] = fitness_values[i]
+        
+        # Update the global best position and fitness value
+        if max(fitness_values) > gbest_fitness_value:
+            gbest_position = population[np.argmax(fitness_values)]
+            gbest_fitness_value = max(fitness_values)
+    
+    # Return the global best position
+    return gbest_position
+
+# Example usage:
+#A = ...
+#D = ...
+R_appr = pso(A, D)
+R = iteratively_modify_solution(A, D, R_appr)
+if R is not None:
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+
+
+
+
+
+def is_SAT(m, n, R, C):
+    F = np.empty(shape=(m,n),dtype=bool)
+    for i in range(m):
+        for j in range(n):
+            F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]  
+    print(np.sum(F), n * m, " ", sum([sum(F[i]) == n for i in range(m)])/m)
+    print(F)
+
+
+
+is_SAT(m, n, R_appr, C)
+
+
+
+
+def split_bin(B, b_le_right):
+    r_1s = 2**b_le_right - 1
+    B_right = [b & r_1s for b in B]
+    B_left  = [b >> b_le_right for b in B]
+    return B_left, B_right
+    
+def iteratively_modify_solution(A, D, R_appr, fix_rate=0.7, max_iterations=1000):
+    m, n = A.shape
+    max_fitness = m * n
+    defa = 2**21 - 1
+    
+    for iteration in range(max_iterations):
+        # Create the solver
+        solver = Solver()
+        
+        # Create the variables
+        R = [Int(f"R_{i}") for i in range(m)]
+        
+        # Add the constraints
+        for i in range(m):
+            solver.add(Or([R[i] == d for d in D]))
+            if random.random() < fix_rate:
+                solver.add(R[i] == R_appr[i])
+        C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+        solver.add(sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)]) == m * n)
+        
+        # Check if a solution exists
+        if solver.check() == sat:
+            # Get the solution
+            model = solver.model()
+            R_sol = [model[R[i]].as_long() for i in range(m)]
+            return R_sol
+    
+    # No solution found
+    return None
+
+"""
+# Example usage:
+A = ...
+D = ...
+R_appr = ...
+fix_rate = 0.7
+max_iterations = 1000
+R = iteratively_modify_solution(A, D, R_appr, fix_rate, max_iterations)
+if R is not None:
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+"""
+
+########################################## iterate over finishing ############################################################################
+
+
+
+
+
+
+
         
 
 ########################################################################################################################### Artificial Bee Colony (ABC) algorithm ###########################
