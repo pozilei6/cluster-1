@@ -263,21 +263,31 @@ print(F, np.sum(F)/(n*m))
 
 import random
 import numpy as np 
+from functools import reduce
 
 large_width = 400
 np.set_printoptions(linewidth=large_width)
 
+
+def concat_two_codes(codes2,codes1,bit_len_2,bit_len_1):
+    shifted_codes2 = [c2 << bit_len_1 for c2 in codes2]
+    codes2_con_codes1 = [sh_c2 + c1 for sh_c2 in shifted_codes2 for c1 in codes1]    
+    return codes2_con_codes1
+
 D = [7, 11, 19, 35, 67, 131, 13, 21, 37, 69, 133, 25, 41, 73, 137, 49, 81, 145, 97, 161, 193, 14, 22, 38,
               70, 134, 26, 42, 74, 138, 50, 82, 146, 98, 162, 194, 28, 44, 76, 140, 52, 84, 148, 100, 164, 196, 56,
               88, 152, 104, 168, 200, 112, 176, 208, 224]
+D = concat_two_codes(D,D,8,8)
+H = [7, 11, 13, 14]
+#D = concat_two_codes(H,D,4,16)
 A = np.array(
     [#1 2 3 4 5 6 7 8 9 10111213141516171819
      [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1], # 1   d
      [0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], # 2  d
      [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0], # 3   d
      [0,0,1,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,0], # 4  d
-     [1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,0], # 5 d
-     [0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,0,0], # 6   d
+     [1,0,1,0,0,0,0,0,0,0,1,0,0,1,0,1,0,1,0], # 5 d
+     [0,0,0,0,0,0,0,1,0,0,0,0,1,0,1,0,1,0,0], # 6   d
      [0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0], # 7     d
      [1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0], # 8 d
      [0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,1,0,0], # 9   d
@@ -287,6 +297,8 @@ A = np.array(
      [1,0,0,0,0,0,0,0,1,1,1,0,0,0,1,0,0,0,0], # 13    d
      [0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0], # 14    d
      [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,1], # 15 d
+     ],dtype = int)
+"""
      [0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0], # 16   d
      [0,0,0,0,1,0,1,1,0,1,0,1,0,0,1,0,1,0,0], # 17 d
      [0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0], # 18 d
@@ -297,71 +309,88 @@ A = np.array(
      [0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,0,0,0,1], # 23  d
      [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,0], # 24 d
      ],dtype = int)
+"""
 
 
-
-def fitness(R, C, A):
+#-------------------------------------------------------------------------------
+def fitness(R, A):
     m, n = A.shape
+    defa = 2**16 - 1
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
     return sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)])
 
-def crossover(R1, C1, R2, C2):
+def crossover(R1, R2):
     m = len(R1)
-    n = len(C1)
     R = [R1[i] if random.random() < 0.5 else R2[i] for i in range(m)]
-    C = [C1[j] if random.random() < 0.5 else C2[j] for j in range(n)]
-    return R, C
+    return R
 
-def mutate(R, C, D):
+def mutate(R, D):
     m = len(R)
-    n = len(C)
     i = random.randrange(m)
     R[i] = random.choice(D)
-    j = random.randrange(n)
-    C[j] = 1 << random.randrange(8)
-
-def find_approximate_solution(A, D):
+    
+def find_approximate_solution(A, D, pop_size=30, num_genera=400):
     m, n = A.shape
-    population_size = 30 #originally  100
-    num_generations = 40 #originally 1000  but better lower, can run few times as res changes much
+    max_fitness = m * n
+    population_size = pop_size
+    num_generations = num_genera
     population_R = [[random.choice(D) for _ in range(m)] for _ in range(population_size)]
-    population_C = [[1 << random.randrange(8) for _ in range(n)] for _ in range(population_size)]
     for generation in range(num_generations):
-        fitness_values = [fitness(population_R[i], population_C[i], A) for i in range(population_size)]
+        fitness_values = [fitness(population_R[i], A) for i in range(population_size)]
+        # Sort the population by fitness
         population_R = [x for _, x in sorted(zip(fitness_values, population_R), reverse=True)]
-        population_C = [x for _, x in sorted(zip(fitness_values, population_C), reverse=True)]
+        # If the fittest individual has maximum fitness, return it immediately
+        if fitness_values[0] == max_fitness:
+            return population_R[0]
+        # Otherwise, generate the next generation
         new_population_R = population_R[:population_size // 2]
-        new_population_C = population_C[:population_size // 2]
         while len(new_population_R) < population_size:
             i = random.randrange(population_size // 2)
             j = random.randrange(population_size // 2)
-            R, C = crossover(population_R[i], population_C[i], population_R[j], population_C[j])
-            mutate(R, C, D)
+            R = crossover(population_R[i], population_R[j])
+            mutate(R, D)
             new_population_R.append(R)
-            new_population_C.append(C)
         population_R = new_population_R
-        population_C = new_population_C
-    best_R = population_R[0]
-    best_C = population_C[0]
-    return best_R[:], best_C[:]
+    # If no individual with maximum fitness was found, return the fittest individual from the last generation
+    return population_R[0]
+#-------------------------------------------------------------------------------
+
+def split_bin(B, b_le_right):
+    r_1s = 2**b_le_right - 1
+    B_right = [b & r_1s for b in B]
+    B_left  = [b >> b_le_right for b in B]
+    return B_left, B_right
     
+def is_SAT(m, n, R, C):
+    F = np.empty(shape=(m,n),dtype=bool)
+    for i in range(m):
+        for j in range(n):
+            F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]  
+    print(np.sum(F), n * m)
+    return np.sum(F) == n * m  # SAT?
 
-
-
-R, C = find_approximate_solution(A, D)
+def genetic_solver(A, D, H, b_le_S, b_le_H):
+    defa = 2**(b_le_S + b_le_H) - 1
+    m, n = A.shape
+    D = concat_two_codes(H, D, b_le_H, b_le_S)
+    pop_size = (m + n) // 2 
+    num_genera = m * n 
+    for v in range(20):
+        R = find_approximate_solution(A, D, pop_size + 2 * v * m, num_genera + v * (m + n))
+        C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+        
+        if is_SAT(m, n, R, C):                          
+            RH_int, RS_int = split_bin(R, b_le_S)
+            CH_int, CS_int = split_bin(C, b_le_S)
+            R_int = [RH_int, RS_int]
+            C_int = [CH_int, CS_int]
+            return [R_int, C_int]     
+            
+    return np.sum(F)/(n*m)          # UNSAT
     
-print(R, C)
-
-m,n=A.shape
-F = np.empty(shape=(m,n),dtype=bool)
-for i in range(m):
-    for j in range(n):
-        F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]
-                                                     #how many pb constr cot fullfiled?
-print(F, np.sum(F)/(n*m))                            #np.sum(F)/(n*m) = 0.546 at current population_size = 100, num_generations = 1000,          0.638 at population_size = 100, num_generations = 1000
-    
-print(all(r in set(D) for r in R))    #r all in D
-for r in R:
-    print(np.binary_repr(r, 8))  
+        
+        
+R_int, C_int = genetic_solver(A, D, H, 16, 4)
 
 ##########################################################################################################################
         
