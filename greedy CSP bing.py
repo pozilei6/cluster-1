@@ -667,6 +667,223 @@ R_int, C_int = genetic_solver(A, D, H, 16, 4)
 
 
 
+
+############################################################################ simulated annealing 2 ##############################################################################################
+import numpy as np
+from functools import reduce
+from itertools import combinations
+
+def get_H(le, nbr_0s):
+    # Get all possible combinations of positions for the unset bits
+    unset_bits_positions = list(combinations(range(le), nbr_0s))
+    H = []
+    # Set all bits to 1
+    num = (1 << le) - 1
+    for positions in unset_bits_positions:
+        # Unset the bits at the specified positions
+        temp_num = num
+        for pos in positions:
+            temp_num &= ~(1 << pos)
+        H.append(temp_num)
+    return H
+
+def concat_two_codes(codes2,codes1,bit_len_2,bit_len_1):
+    shifted_codes2 = [c2 << bit_len_1 for c2 in codes2]
+    codes2_con_codes1 = [sh_c2 + c1 for sh_c2 in shifted_codes2 for c1 in codes1]    
+    return codes2_con_codes1
+    
+    
+
+D = [7, 11, 19, 35, 67, 131, 13, 21, 37, 69, 133, 25, 41, 73, 137, 49, 81, 145, 97, 161, 193, 14, 22, 38,
+              70, 134, 26, 42, 74, 138, 50, 82, 146, 98, 162, 194, 28, 44, 76, 140, 52, 84, 148, 100, 164, 196, 56,
+              88, 152, 104, 168, 200, 112, 176, 208, 224]
+D = concat_two_codes(D,D,8,8)
+H = [7, 11, 13, 14]
+H = get_H(7, 1)
+#D = concat_two_codes(H,D,4,16)
+A = np.array(
+    [#1 2 3 4 5 6 7 8 9 10111213141516171819
+     [1,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,0,1], # 1   d
+     [0,0,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0], # 2  d
+     [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0], # 3   d
+     [0,0,1,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,0], # 4  d
+     [1,0,1,0,0,0,0,0,0,0,1,0,0,1,0,1,0,1,0], # 5 d
+     [0,0,0,0,0,0,0,1,0,0,0,0,1,0,1,0,1,0,0], # 6   d
+     [0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0], # 7     d
+     [1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0], # 8 d
+     [0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,1,0,0], # 9   d
+     [0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0], # 10  d
+     [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0], # 11    d
+     [0,0,1,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0], # 12  d
+     [1,0,0,0,0,0,0,0,1,1,1,0,0,0,1,0,0,0,0], # 13    d
+     [0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0], # 14    d
+     [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,1], # 15 d
+     ],dtype = int)
+     
+import math
+import random
+
+def highest_unset_bit(bit_le, R):
+    highest_position = -1
+    for num in R:
+        for pos in range(bit_le):
+            if (num & (1 << pos)) == 0:
+                highest_position = max(highest_position, pos)
+    return highest_position
+    
+def current_sol(D, A, m):
+    n = A.shape[1]
+    current_solution = []
+    while len(current_solution) < m:
+        # Choose a random number from D
+        num = random.choice(D)
+        # Check if the number satisfies the properties
+        valid = True
+        for i in range(len(current_solution)):
+            if num == current_solution[i]:
+                valid = False
+                break
+            if any(A[i, k] == 1 and A[len(current_solution), k] == 1 for k in range(n)):
+                if (num & current_solution[i]) == 0:
+                    valid = False
+                    break
+        if valid:
+            current_solution.append(num)
+    return current_solution
+
+def fitness(R, A, b_le_S, b_le_H):
+    m, n = A.shape
+    defa = 2**21 - 1
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+    return sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)]) * highest_unset_bit(b_le_S + b_le_H, R)
+    
+def mutate(R, D):
+    m = len(R)
+    i = random.randrange(m)
+    R[i] = random.choice(D)
+
+
+
+
+
+#------------------------------------
+def simulated_annealing_with_restarts(A, D, b_le_S, b_le_H, num_restarts=10, max_iterations=1000, initial_temperature=100, cooling_rate=0.95):
+    m, n = A.shape
+    max_fitness = m * n
+    defa = 2**21 - 1
+    
+    best_solution = None
+    best_fitness = 0
+    
+    for restart in range(num_restarts):
+        # Initialize the current solution and its fitness
+        #current_solution = random.sample(D, m)
+        current_solution = current_sol(D, A, m)
+        #current_solution = [random.choice(D) for _ in range(m)]
+        current_fitness = fitness(current_solution, A, b_le_S, b_le_H)
+        
+        # Set the initial temperature
+        temperature = initial_temperature
+        
+        for i in range(max_iterations):
+            # Create a new solution by mutating the current solution
+            new_solution = current_solution[:]
+            mutate(new_solution, D)
+            new_fitness = fitness(new_solution, A, b_le_S, b_le_H)
+            
+            # Calculate the change in fitness
+            delta_fitness = new_fitness - current_fitness
+            
+            # If the new solution is better, accept it
+            if delta_fitness > 0:
+                current_solution = new_solution
+                current_fitness = new_fitness
+                
+                # Update the best solution found so far
+                if new_fitness > best_fitness:
+                    best_solution = new_solution
+                    best_fitness = new_fitness
+                    
+                    # If the best solution has maximum fitness, return it immediately
+                    if best_fitness == max_fitness:
+                        return best_solution
+                    
+            # If the new solution is worse, accept it with a certain probability
+            else:
+                if np.isclose(temperature, 0):
+                    acceptance_probability = 0
+                else:
+                    acceptance_probability = np.exp(delta_fitness / temperature)
+                if random.random() < acceptance_probability:
+                    current_solution = new_solution
+                    current_fitness = new_fitness
+            
+            # Cool down the temperature
+            temperature *= cooling_rate
+    
+    return best_solution
+#------------------------------------
+
+
+
+
+# Example usage:
+m, n = A.shape
+defa = 2**(16 + 4) - 1
+
+
+
+def split_bin(B, b_le_right):
+    r_1s = 2**b_le_right - 1
+    B_right = [b & r_1s for b in B]
+    B_left  = [b >> b_le_right for b in B]
+    return B_left, B_right
+    
+def is_SAT(m, n, R, C):
+    F = np.empty(shape=(m,n),dtype=bool)
+    for i in range(m):
+        for j in range(n):
+            F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]  
+    print(np.sum(F), n * m)
+    return np.sum(F) == n * m  # SAT?
+
+def genetic_solver(A, D, H, b_le_S, b_le_H):
+    
+    defa = 2**(b_le_S + b_le_H) - 1
+    m, n = A.shape
+    D = concat_two_codes(H, D, b_le_H, b_le_S)
+
+    for v in range(20):
+        R = simulated_annealing_with_restarts(A, D, b_le_S, b_le_H, num_restarts=30, max_iterations=1000, initial_temperature=200, cooling_rate=0.99)
+        C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+        
+        if is_SAT(m, n, R, C):                          
+            RH_int, RS_int = split_bin(R, b_le_S)
+            CH_int, CS_int = split_bin(C, b_le_S)
+            R_int = [RH_int, RS_int]
+            C_int = [CH_int, CS_int]
+            return [R_int, C_int]     
+            
+    return 'UNSAT'
+
+
+print(current_sol(D, A, m))
+
+
+H = get_H(3, 1)
+R_int, C_int = genetic_solver(A, D, H, 16, 3)
+
+
+
+############################################################################ simulated annealing 2 ##############################################################################################
+
+
+
+
+
+
+
+
 ########## plotting by (population size, number of iterations) #############################################
 
 
