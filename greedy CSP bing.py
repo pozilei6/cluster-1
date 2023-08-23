@@ -1139,6 +1139,129 @@ R_int, C_int = genetic_solver(A, D, H, 16, 3)
 
 
 
+############################################################################ Tabu Search only ##############################################################################################
+# run in  https://www.onlinegdb.com/online_python_compiler
+import numpy as np
+from functools import reduce
+from itertools import combinations
+import random
+
+
+def get_H(le, nbr_0s):
+    # Get all possible combinations of positions for the unset bits
+    unset_bits_positions = list(combinations(range(le), nbr_0s))
+    H = []
+    # Set all bits to 1
+    num = (1 << le) - 1
+    for positions in unset_bits_positions:
+        # Unset the bits at the specified positions
+        temp_num = num
+        for pos in positions:
+            temp_num &= ~(1 << pos)
+        H.append(temp_num)
+    return H
+def concat_two_codes(codes2,codes1,bit_len_2,bit_len_1):
+    shifted_codes2 = [c2 << bit_len_1 for c2 in codes2]
+    codes2_con_codes1 = [sh_c2 + c1 for sh_c2 in shifted_codes2 for c1 in codes1]    
+    return codes2_con_codes1
+D = [7, 11, 19, 35, 67, 131, 13, 21, 37, 69, 133, 25, 41, 73, 137, 49, 81, 145, 97, 161, 193, 14, 22, 38,
+              70, 134, 26, 42, 74, 138, 50, 82, 146, 98, 162, 194, 28, 44, 76, 140, 52, 84, 148, 100, 164, 196, 56,
+              88, 152, 104, 168, 200, 112, 176, 208, 224]
+D = concat_two_codes(D,D,8,8)
+H = get_H(3, 1)
+D = concat_two_codes(H, D, 3, 16)
+A = np.array(
+    [#1 2 3 4 5 6 7 8 9 10111213141516171819
+     [1,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,0,1], # 1   d
+     [0,0,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0], # 2  d
+     [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0], # 3   d
+     [0,0,1,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,0], # 4  d
+     [1,0,1,0,0,0,0,0,0,0,1,0,0,1,0,1,0,1,0], # 5 d
+     [0,0,0,0,0,0,0,1,0,0,0,0,1,0,1,0,1,0,0], # 6   d
+     [0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0], # 7     d
+     [1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0], # 8 d
+     [0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,1,0,0], # 9   d
+     [0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0], # 10  d
+     [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0], # 11    d
+     [0,0,1,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0], # 12  d
+     [1,0,0,0,0,0,0,0,1,1,1,0,0,0,1,0,0,0,0], # 13    d
+     [0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0], # 14    d
+     [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,1], # 15 d
+     ],dtype = int)
+m, n = A.shape
+
+
+#-----------------------
+def fitness(R, A):
+    m, n = A.shape
+    defa = 2**21 - 1
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+    return sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)])
+
+def generate_solution(A, D):
+    m, _ = A.shape
+    R = [np.random.choice(D) for _ in range(m)]
+    return R
+
+def find_approximate_solution(A, D):
+    m, n = A.shape
+    max_fitness = m * n
+
+    # Initialize solution
+    R = generate_solution(A, D)
+    
+    # Initialize tabu list and other parameters
+    tabu_list = []
+    tabu_list_size = 50
+    num_iterations = 1000
+
+    # Main loop
+    for _ in range(num_iterations):
+        # Generate neighborhood solutions
+        neighborhood = []
+        for i in range(m):
+            for d in D:
+                if d != R[i]:
+                    R_new = R.copy()
+                    R_new[i] = d
+                    neighborhood.append(R_new)
+
+        # Evaluate fitness of neighborhood solutions
+        fitness_values = [fitness(R_new, A) for R_new in neighborhood]
+
+        # Find the best solution not in the tabu list
+        best_fitness_value = -1
+        best_R = None
+        for i in range(len(neighborhood)):
+            if (fitness_values[i] > best_fitness_value and 
+                not any(np.array_equal(neighborhood[i], T) for T in tabu_list)):
+                best_fitness_value = fitness_values[i]
+                best_R = neighborhood[i]
+
+        # Update current solution and tabu list
+        R = best_R
+        tabu_list.append(R)
+        if len(tabu_list) > tabu_list_size:
+            tabu_list.pop(0)
+
+        # Check if maximum fitness is reached
+        if best_fitness_value == max_fitness:
+            break
+
+    return R
+#-----------------------
+
+
+R = find_approximate_solution(A, D)
+
+C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+F = np.empty(shape=(m,n),dtype=bool)
+for i in range(m):
+    for j in range(n):
+        F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]  
+print(np.sum(F), n * m, " ", sum([sum(F[i]) == n for i in range(m)])/m)
+print(F)
+############################################################################ Tabu Search only ##############################################################################################
 
 
 
