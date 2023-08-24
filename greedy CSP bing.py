@@ -666,6 +666,201 @@ if R is not None:
 
 
 
+###############################################################################################################################################
+########################################## better genetic algorithm ###########################################################################
+# run in  https://www.onlinegdb.com/online_python_compiler
+
+import random
+import numpy as np 
+from functools import reduce
+
+large_width = 400
+np.set_printoptions(linewidth=large_width)
+
+
+def concat_two_codes(codes2,codes1,bit_len_2,bit_len_1):
+    shifted_codes2 = [c2 << bit_len_1 for c2 in codes2]
+    codes2_con_codes1 = [sh_c2 + c1 for sh_c2 in shifted_codes2 for c1 in codes1]    
+    return codes2_con_codes1
+
+D = [7, 11, 19, 35, 67, 131, 13, 21, 37, 69, 133, 25, 41, 73, 137, 49, 81, 145, 97, 161, 193, 14, 22, 38,
+              70, 134, 26, 42, 74, 138, 50, 82, 146, 98, 162, 194, 28, 44, 76, 140, 52, 84, 148, 100, 164, 196, 56,
+              88, 152, 104, 168, 200, 112, 176, 208, 224]
+D = concat_two_codes(D,D,8,8)
+H = [7, 11, 13, 14]
+#D = concat_two_codes(H,D,4,16)
+A = np.array(
+    [#1 2 3 4 5 6 7 8 9 10111213141516171819
+     [1,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1], # 1   d
+     [0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], # 2  d
+     [0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0], # 3   d
+     [0,0,1,0,1,0,1,0,0,0,0,0,0,1,0,1,0,0,0], # 4  d
+     [1,0,1,0,0,0,0,0,0,0,1,0,0,1,0,1,0,1,0], # 5 d
+     [0,0,0,0,0,0,0,1,0,0,0,0,1,0,1,0,1,0,0], # 6   d
+     [0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0], # 7     d
+     [1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0], # 8 d
+     [0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,1,1,0,0], # 9   d
+     [0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0], # 10  d
+     [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0], # 11    d
+     [0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0], # 12  d
+     [1,0,0,0,0,0,0,0,1,1,1,0,0,0,1,0,0,0,0], # 13    d
+     [0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0], # 14    d
+     [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,1], # 15 d
+     ],dtype = int)
+"""
+     [0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0], # 16   d
+     [0,0,0,0,1,0,1,1,0,1,0,1,0,0,1,0,1,0,0], # 17 d
+     [0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0], # 18 d
+     [1,0,1,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0], # 19 d
+     [0,0,0,0,0,1,1,0,1,0,0,0,0,1,1,0,0,0,0], # 20 d
+     [0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0], # 21  d
+     [0,0,0,0,0,1,0,0,1,0,1,0,0,0,1,0,0,0,0], # 22 d
+     [0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,0,0,0,1], # 23  d
+     [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,0], # 24 d
+     ],dtype = int)
+"""
+
+
+#-------------------------------------------------------------------------------
+def fitness(R, A):
+    m, n = A.shape
+    defa = 2**16 - 1
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+    return sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)])
+
+def crossover(R1, R2):
+    m = len(R1)
+    R = [R1[i] if random.random() < 0.5 else R2[i] for i in range(m)]
+    return R
+    
+# new crossover to try
+# --------------------
+def crossover_rem_build_blocks(R1, R2, A):  #crossover_rem_build_blocks
+    m, n = A.shape
+    C1 = [reduce(lambda x,y: np.bitwise_and(x, y), [R1[i] for i in range(m) if A[i, j] == 1], 2**22 - 1) for j in range(n)]
+    C2 = [reduce(lambda x,y: np.bitwise_and(x, y), [R2[i] for i in range(m) if A[i, j] == 1], 2**22 - 1) for j in range(n)]
+    
+    good_building_blocksR1 = [i for i in range(m) if all([(R1[i] & C1[j] == C1[j]) == A[i, j] for j in range(n)])]
+    good_building_blocksR2 = [i for i in range(m) if all([(R2[i] & C2[j] == C2[j]) == A[i, j] for j in range(n)])]
+    
+    R12 = [0]*m
+    for i in good_building_blocksR1:
+        R12[i] = R1[i]
+    for i in good_building_blocksR2:
+        R12[i] = R2[i]
+    for i in set(range(m)) - set(good_building_blocksR1 + good_building_blocksR2):
+        R12[i] = np.random.choice([R1[i], R2[i]])
+    
+    C12 = [reduce(lambda x,y: np.bitwise_and(x, y), [R12[i] for i in range(m) if A[i, j] == 1], 2**22 - 1) for j in range(n)]
+    good_building_blocksR12 = [i for i in range(m) if all([(R12[i] & C12[j] == C12[j]) == A[i, j] for j in range(n)])]
+    
+    if max(len(good_building_blocksR1), len(good_building_blocksR2)) > 0.8 * m * n:
+        return R1 if len(good_building_blocksR1) > len(good_building_blocksR2) else R2 
+    
+    if len(good_building_blocksR12) >= max(len(good_building_blocksR1), len(good_building_blocksR2))/2:
+        return R12
+    else:
+        return R1 if len(good_building_blocksR1) > len(good_building_blocksR2) else R2
+# --------------------
+
+def mutate(R, D):             # better
+    m = len(R)
+    i = random.randrange(m)
+    R[i] = random.choice(D)
+
+def mutate2(R, A, D, m, n):    # not better but slower
+    C = [reduce(lambda x,y: np.bitwise_and(x, y), [R[i] for i in range(m) if A[i, j] == 1], 2**22 - 1) for j in range(n)]
+    good_building_blocksR = [i for i in range(m) if all([(R[i] & C[j] == C[j]) == A[i, j] for j in range(n)])]
+    i = random.choice([i for i in range(m) if i not in good_building_blocksR])
+    R[i] = random.choice(D)    
+    
+    
+  
+def find_approximate_solution(A, D, pop_size=3, num_genera=2):  # pop_size=30, num_genera=40   is good
+    m, n = A.shape
+    max_fitness = m * n
+    population_size = pop_size
+    num_generations = num_genera
+    population_R = [[random.choice(D) for _ in range(m)] for _ in range(population_size)]
+    for generation in range(num_generations):
+        fitness_values = [fitness(population_R[i], A) for i in range(population_size)]
+        # Sort the population by fitness
+        population_R = [x for _, x in sorted(zip(fitness_values, population_R), reverse=True)]
+        # If the fittest individual has maximum fitness, return it immediately
+        if fitness_values[0] == max_fitness:
+            return population_R[0]
+        # Otherwise, generate the next generation
+        new_population_R = population_R[:population_size // 2]
+        while len(new_population_R) < population_size:
+            i = random.randrange(population_size // 2)
+            j = random.randrange(population_size // 2)
+            R = crossover_rem_build_blocks(population_R[i], population_R[j], A)  # crossover
+            
+            #if fitness(R, A) > 0.95 * max_fitness:
+            #    for _ in range(5):
+            #        mutate(R, D)
+            #        new_population_R.append(R)
+            #mutate2(R, A, D, m, n)
+            mutate(R, D)              # probably better than mutate2(R, A, D, m, n) as it's faster and better     
+            new_population_R.append(R)
+        population_R = new_population_R
+    # If no individual with maximum fitness was found, return the fittest individual from the last generation
+    return population_R[0]
+#-------------------------------------------------------------------------------
+
+
+def split_bin(B, b_le_right):
+    r_1s = 2**b_le_right - 1
+    B_right = [b & r_1s for b in B]
+    B_left  = [b >> b_le_right for b in B]
+    return B_left, B_right
+    
+def is_SAT(m, n, R, C):
+    F = np.empty(shape=(m,n),dtype=bool)
+    for i in range(m):
+        for j in range(n):
+            F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]  
+    print(np.sum(F), n * m)
+    return np.sum(F) == n * m  # SAT?
+
+def genetic_solver(A, D, H, b_le_S, b_le_H):
+    defa = 2**(b_le_S + b_le_H) - 1
+    m, n = A.shape
+    D = concat_two_codes(H, D, b_le_H, b_le_S)
+    pop_size = (m + n) // 2 
+    num_genera = m * n 
+    for v in range(20):
+        R = find_approximate_solution(A, D, pop_size + 2 * v * m, num_genera + v * (m + n))
+        C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+        
+        if is_SAT(m, n, R, C):                          
+            RH_int, RS_int = split_bin(R, b_le_S)
+            CH_int, CS_int = split_bin(C, b_le_S)
+            R_int = [RH_int, RS_int]
+            C_int = [CH_int, CS_int]
+            return [R_int, C_int]     
+            
+    return np.sum(F)/(n*m)          # UNSAT
+    
+        
+# single execution-----
+m, n = A.shape
+R = find_approximate_solution(A, D, pop_size=7, num_genera=50)
+C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], 2**20 - 1) for j in range(n)]
+is_SAT(m, n, R, C)
+# ---------------------                        
+# R_int, C_int = genetic_solver(A, D, H, 16, 4)
+
+########################################## better genetic algorithm ###########################################################################
+###############################################################################################################################################
+
+
+
+
+
+
+
+
 
 
         
