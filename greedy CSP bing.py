@@ -1807,7 +1807,23 @@ plt.show()
 
 
 
-
+"""
+Given the complexity of your problem, varying the crossover and mutation methods during computation could indeed be a beneficial strategy. Here’s why:
+Varying Crossover Methods: The choice of crossover method can significantly impact the performance of a genetic algorithm. Uniform crossover can be 
+beneficial in the early stages of the algorithm when exploration is more important. On the other hand, multi-point crossover can be more useful in the 
+later stages when exploitation becomes more important. Therefore, using uniform crossover in the early generations and switching to multi-point crossover 
+in the later generations could potentially improve performance.
+Varying Mutation Methods: Similarly, an adaptive mutation rate that starts high and decreases over time can encourage exploration in the early stages and 
+exploitation in the later stages. This can be particularly useful in problems where a small change in the solution can lead to a large change in the objective 
+function value.
+Intensifying Local Search: Intensifying local search for better-fitted solutions or in later generations can also be a good strategy. In the early stages of 
+the algorithm, a more global search is typically more beneficial to explore a larger portion of the solution space. In the later stages, once good solutions 
+have been found, intensifying local search can help refine these solutions and potentially find even better ones.
+Remember, these strategies are heuristic in nature and there’s no guarantee they will always work for every problem. It’s often beneficial to experiment with 
+different strategies and tune your algorithm based on the specific characteristics of your problem. Also, keep in mind that genetic algorithms are stochastic 
+and may not always find the global optimum, especially for complex combinatorial problems. If finding an exact global optimum is mandatory for your problem, 
+you might need to consider exact optimization methods, although these can be computationally expensive for large and complex problems.
+"""
 
 
 ########################################################################################################################
