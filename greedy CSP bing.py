@@ -1808,3 +1808,235 @@ plt.show()
 
 
 
+
+
+########################################################################################################################
+############################################## entire genetic.py from GUI-sp ###########################################
+
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Aug 23 00:19:19 2023
+
+@author: Dell Optiplex 9020
+"""
+import random
+import numpy as np 
+from functools import reduce
+
+
+def concat_two_codes(codes2,codes1,bit_len_2,bit_len_1):
+    shifted_codes2 = [c2 << bit_len_1 for c2 in codes2]
+    codes2_con_codes1 = [sh_c2 + c1 for sh_c2 in shifted_codes2 for c1 in codes1]    
+    return codes2_con_codes1
+
+def fitness(R, A):
+    m, n = A.shape
+    defa = 2**16 - 1
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+    return sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)])
+
+def crossover(R1, R2):
+    m = len(R1)
+    R = [R1[i] if random.random() < 0.5 else R2[i] for i in range(m)]
+    return R
+
+
+# new crossover to try
+# --------------------
+def crossover_rem_build_blocks(R1, R2, A):  #crossover_rem_build_blocks
+    m, n = A.shape
+    C1 = [reduce(lambda x,y: np.bitwise_and(x, y), [R1[i] for i in range(m) if A[i, j] == 1], 2**22 - 1) for j in range(n)]
+    C2 = [reduce(lambda x,y: np.bitwise_and(x, y), [R2[i] for i in range(m) if A[i, j] == 1], 2**22 - 1) for j in range(n)]
+    
+    good_building_blocksR1 = [i for i in range(m) if all([(R1[i] & C1[j] == C1[j]) == A[i, j] for j in range(n)])]
+    good_building_blocksR2 = [i for i in range(m) if all([(R2[i] & C2[j] == C2[j]) == A[i, j] for j in range(n)])]
+    
+    R12 = [0]*m
+    for i in good_building_blocksR1:
+        R12[i] = R1[i]
+    for i in good_building_blocksR2:
+        R12[i] = R2[i]
+    for i in set(range(m)) - set(good_building_blocksR1 + good_building_blocksR2):
+        R12[i] = np.random.choice([R1[i], R2[i]])
+    
+    C12 = [reduce(lambda x,y: np.bitwise_and(x, y), [R12[i] for i in range(m) if A[i, j] == 1], 2**22 - 1) for j in range(n)]
+    good_building_blocksR12 = [i for i in range(m) if all([(R12[i] & C12[j] == C12[j]) == A[i, j] for j in range(n)])]
+    
+    if max(len(good_building_blocksR1), len(good_building_blocksR2)) > 0.8 * m * n:
+        return R1 if len(good_building_blocksR1) > len(good_building_blocksR2) else R2 
+    
+    if len(good_building_blocksR12) >= max(len(good_building_blocksR1), len(good_building_blocksR2))/2:
+        return R12
+    else:
+        return R1 if len(good_building_blocksR1) > len(good_building_blocksR2) else R2
+# --------------------
+
+def mutate(R, D):
+    m = len(R)
+    i = random.randrange(m)
+    R[i] = random.choice(D)
+    
+    
+def mutate2(R, A, D, m, n):   
+    C = [reduce(lambda x,y: np.bitwise_and(x, y), [R[i] for i in range(m) if A[i, j] == 1], 2**22 - 1) for j in range(n)]
+    good_building_blocksR = [i for i in range(m) if all([(R[i] & C[j] == C[j]) == A[i, j] for j in range(n)])]
+    good_building_blocksC = [j for j in range(n) if all([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m)])]
+    if good_building_blocksC:
+        for i in set(range(m)) - set(good_building_blocksR):
+            for d in set(D) - {R[v] for v in good_building_blocksR}:
+                if all([(d & C[j] == C[j]) == A[i, j] for j in good_building_blocksC]):
+                    R[i] = d
+    elif good_building_blocksR:
+        i = random.choice([i for i in range(m) if i not in good_building_blocksR])
+        R[i] = random.choice(D)
+    else:
+        i = random.randrange(m)
+        R[i] = random.choice(D)
+        
+ 
+    
+def find_approximate_solution(A, D, pop_size=30, num_genera=400):
+    m, n = A.shape
+    max_fitness = m * n
+    population_size = pop_size
+    num_generations = num_genera
+    population_R = [[random.choice(D) for _ in range(m)] for _ in range(population_size)]
+    for generation in range(num_generations):
+        fitness_values = [fitness(population_R[i], A) for i in range(population_size)]
+        # Sort the population by fitness
+        population_R = [x for _, x in sorted(zip(fitness_values, population_R), reverse=True)]
+        # If the fittest individual has maximum fitness, return it immediately
+        if fitness_values[0] == max_fitness:
+            return population_R[0]
+        # Otherwise, generate the next generation
+        new_population_R = population_R[:population_size // 2]
+        while len(new_population_R) < population_size:
+            i = random.randrange(population_size // 2)
+            j = random.randrange(population_size // 2)
+            #R = crossover(population_R[i], population_R[j])
+            R = crossover_rem_build_blocks(population_R[i], population_R[j], A)  # crossover
+            #mutate(R, D)
+            new_population_R.append(R)
+        population_R = new_population_R
+        
+        for R in population_R[:population_size // 2]:
+            mutate2(R, A, D, m, n)
+            
+    # If no individual with maximum fitness was found, return the fittest individual from the last generation
+    return population_R[0]
+
+
+
+#------------------------------------------------------------------------------
+#--- new with elit parameter and adaptive mutation ----------------------------
+
+def mutate_rate(R, D):                                                         # mutate function performs adaptive mutation. In this version, the mutation rate 
+    global mutation_rate                                                       # decreases over time, starting from an initial rate of 1/m and decreasing by a 
+    m = len(R)                                                                 # factor of 0.99 with each call to the function. This encourages exploration of 
+    # Perform mutation with probability mutation_rate                          # the solution space in the early stages of the algorithm, while allowing for 
+    if random.random() < mutation_rate:                                        # more exploitation in the later stages.
+        i = random.randrange(m)
+        R[i] = random.choice(D)
+    # Decrease mutation_rate for next generation
+    mutation_rate *= 0.99
+    
+def crossover(R1, R2): # not invoked yet                                       # Multi-point Crossover: This method can preserve combinations of genes that work well together,
+    m = len(R1)                                                                # which can be beneficial if there are complex interactions between genes. However, it can also be
+    # Choose two random crossover points                                       # more disruptive than uniform crossover, as it can change multiple genes at once.
+    c1 = random.randrange(m)
+    c2 = random.randrange(m)
+    if c1 > c2:
+        c1, c2 = c2, c1
+    # Create the child by taking elements from R1 between the crossover points and elements from R2 outside the crossover points
+    R = R1[:c1] + R2[c1:c2] + R1[c2:]
+    return R
+
+
+def find_approximate_solution(A, D, pop_size=30, num_genera=400, elit=0.1):    # elit is the fraction of unchanged best fitted remaining in new population.
+    mutation_rate = 1.0 / len(D)
+    m, n = A.shape
+    max_fitness = m * n
+    population_size = pop_size
+    num_generations = num_genera
+    population_R = [[random.choice(D) for _ in range(m)] for _ in range(population_size)]
+    
+    # Calculate the number of elite individuals to keep
+    num_elites = int(population_size * elit)  # Added this line
+    
+    for generation in range(num_generations):
+        fitness_values = [fitness(population_R[i], A) for i in range(population_size)]
+        # Sort the population by fitness
+        population_R = [x for _, x in sorted(zip(fitness_values, population_R), reverse=True)]
+        # If the fittest individual has maximum fitness, return it immediately
+        if fitness_values[0] == max_fitness:
+            return population_R[0]
+        # Otherwise, generate the next generation
+        new_population_R = population_R[:num_elites]  # Modified this line to keep only the elites
+        while len(new_population_R) < population_size:
+            i = random.randrange(num_elites)  # Modified this line to select parents only from the elites
+            j = random.randrange(num_elites)  # Modified this line to select parents only from the elites
+            R = crossover_rem_build_blocks(population_R[i], population_R[j], A)  # crossover
+            mutate_rate(R, D)
+            new_population_R.append(R)
+        population_R = new_population_R
+    # If no individual with maximum fitness was found, return the fittest individual from the last generation
+    return population_R[0]
+
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+
+
+def split_bin(B, b_le_right):
+    r_1s = 2**b_le_right - 1
+    B_right = [b & r_1s for b in B]
+    B_left  = [b >> b_le_right for b in B]
+    return B_left, B_right
+    
+def is_SAT(A, m, n, R, C):
+    F = np.empty(shape=(m,n),dtype=bool)
+    for i in range(m):
+        for j in range(n):
+            F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]  
+    print(np.sum(F), n * m)
+    return np.sum(F) == n * m  # SAT?
+
+
+# only this function called in in zentral.CSP()
+def genetic_solver(A, D, H, b_le_S, b_le_H):                                   
+    defa = 2**(b_le_S + b_le_H) - 1
+    m, n = A.shape
+    D = concat_two_codes(H, D, b_le_H, b_le_S)
+    pop_size = (m + n) // 2 
+    num_genera = m #* n 
+    for v in range(20):
+        R = find_approximate_solution(A, D, pop_size + v * n // 3, num_genera + v * (m + n) // 5)
+        C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+        
+        if is_SAT(A, m, n, R, C):                          
+            RH_int, RS_int = split_bin(R, b_le_S)
+            CH_int, CS_int = split_bin(C, b_le_S)
+            R_int = [RH_int, RS_int]
+            C_int = [CH_int, CS_int]
+            return [R_int, C_int]     
+            
+    return 'UNSAT'    
+
+
+
+if __name__ == '__main__':
+    print("genetic.py invoked")
+
+#######################################################################################################################################
+#######################################################################################################################################
+
+
+
+
+
+    
+
+
+
+
+
+
