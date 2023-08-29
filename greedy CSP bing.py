@@ -2290,6 +2290,153 @@ R_int, C_int = genetic_solver(A, D, H, 16, 4)
 
 
 
+#######################################################################################################################################
+#######################################################################################################################################
+####################################################################################################################################### 
+# run in  https://www.onlinegdb.com/online_python_compiler
+
+import numpy as np
+from functools import reduce
+from itertools import combinations
+
+
+A = np.array(
+    [
+     [1,1,0,0,0,0,0,0,0,0,1,0,1,0,0,0,1,0,1], 
+     [0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], 
+     [0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0], 
+     [0,0,1,0,1,0,1,0,0,0,0,0,0,1,0,1,0,0,0], 
+     [1,0,1,0,0,0,0,0,0,0,1,0,0,1,0,1,0,1,0], 
+     [0,0,0,0,0,0,0,1,0,0,0,0,1,0,1,0,1,0,0], 
+     [0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0], 
+     [1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0], 
+     [0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,1,1,0,0], 
+     [0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0], 
+     [1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0], 
+     [0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0], 
+     [1,0,0,0,0,0,0,0,1,1,1,0,0,0,1,0,0,0,0], 
+     [0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0], 
+     [1,0,0,0,0,0,1,0,0,1,0,1,0,0,0,0,0,1,1], 
+     ],dtype = int)
+def concat_two_codes(codes2,codes1,bit_len_2,bit_len_1):
+    shifted_codes2 = [c2 << bit_len_1 for c2 in codes2]
+    codes2_con_codes1 = [sh_c2 + c1 for sh_c2 in shifted_codes2 for c1 in codes1]
+    return codes2_con_codes1
+def get_H(le, nbr_0s):
+    # Get all possible combinations of positions for the unset bits
+    unset_bits_positions = list(combinations(range(le), nbr_0s))
+    H = []
+    # Set all bits to 1
+    num = (1 << le) - 1
+    for positions in unset_bits_positions:
+        # Unset the bits at the specified positions
+        temp_num = num
+        for pos in positions:
+            temp_num &= ~(1 << pos)
+        H.append(temp_num)
+    return H
+def split_bin(B, b_le_right):
+    r_1s = 2**b_le_right - 1
+    B_right = [b & r_1s for b in B]
+    B_left  = [b >> b_le_right for b in B]
+    return B_left, B_right
+D = [7, 11, 19, 35, 67, 131, 13, 21, 37, 69, 133, 25, 41, 73, 137, 49, 81, 145, 97, 161, 193, 14, 22, 38,
+              70, 134, 26, 42, 74, 138, 50, 82, 146, 98, 162, 194, 28, 44, 76, 140, 52, 84, 148, 100, 164, 196, 56,
+              88, 152, 104, 168, 200, 112, 176, 208, 224]
+D = concat_two_codes(D,D,8,8)
+H = get_H(2, 1)  
+D = concat_two_codes(H,D,2,16)            
+     
+def is_SAT(R, A):
+    m, n = A.shape
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], 2**24 - 1) for j in range(n)]
+    F = np.empty(shape=(m,n),dtype=bool)
+    for i in range(m):
+        for j in range(n):
+            F[i, j] = (R[i] & C[j] == C[j]) == A[i, j]
+    print(np.sum(F), n * m, " ", sum([sum(F[i]) == n for i in range(m)])/m)
+    print(F)              
+
+              
+def solve_csp(A, D):
+    m, n = A.shape
+    R = [None] * m
+
+    def is_valid(R, r, v):
+        R[r] = v
+        for j in range(n):
+            C = reduce(lambda x, y: x & y, [R[i] for i in range(m) if A[i, j] == 1 and R[i] is not None], 2**24-1)
+            for i in range(r+1):
+                if (R[i] & C == C) != A[i, j]:
+                    R[r] = None
+                    return False
+        R[r] = None
+        return True
+
+    def dfs(r):
+        if r == m:
+            return R[:]
+        for v in D:
+            if is_valid(R, r, v):
+                R[r] = v
+                result = dfs(r + 1)
+                if result is not None:
+                    return result
+                R[r] = None
+        return None
+
+    return dfs(0)
+    
+#sort D descending + order rows by number of 1's 
+def solve_csp(A, D):
+    m, n = A.shape
+    R = [None] * m
+
+    # Sort D in descending order
+    D.sort(reverse=True)
+
+    # Order the rows by the number of 1's
+    row_order = np.argsort(np.sum(A, axis=1))
+
+    def is_valid(R, r, v):
+        R[r] = v
+        for j in range(n):
+            C = reduce(lambda x, y: x & y, [R[i] for i in range(m) if A[i, j] == 1 and R[i] is not None], 2**24-1)
+            for i in range(r+1):
+                if C is not None and R[i] is not None and (R[i] & C == C) != A[i, j]:
+                    R[r] = None
+                    return False
+        R[r] = None
+        return True
+
+    def dfs(r):
+        if r == m:
+            return R[:]
+        for v in D:
+            if is_valid(R, row_order[r], v):
+                R[row_order[r]] = v
+                result = dfs(r + 1)
+                if result is not None:
+                    return result
+                R[row_order[r]] = None
+        return None
+
+    return dfs(0)
+
+    
+    
+R = solve_csp(A, D)
+is_SAT(R, A)
+    
+print(solve_csp(A, D))
+
+
+for r in R:
+    print(np.binary_repr(r,22))
+
+#######################################################################################################################################
+#######################################################################################################################################
+####################################################################################################################################### 
 
 
 
