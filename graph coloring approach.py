@@ -87,6 +87,7 @@ def generate_random_matrix(m, n):
     return A
 def generate_random_matrix_dom(m, n):
     A = np.random.choice([0, 1], size=(m, n), p=[0.7, 0.3])
+    A[:, 0] = 1
     p_dom = 0.4
     for j in range(n - 1):
         if np.random.random() < p_dom:
