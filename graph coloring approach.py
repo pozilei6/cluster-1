@@ -4,6 +4,7 @@
 
 import numpy as np
 
+
 def transitive_reduction(A):
     m, n = A.shape
     M = np.zeros((n, n), dtype=int)
@@ -28,20 +29,6 @@ def transitive_reduction(A):
                         M_trr_sym_3circl[k, k1] = 1
                         M_trr_sym_3circl[k1, k] = 1
     return M_trr, M_trr_sym_3circl
-
-# Example instance with execution
-A = np.array([[0, 1, 0, 0], 
-              [1, 1, 0, 0], 
-              [0, 1, 1, 0], 
-              [1, 1, 1, 1]])
-              
-"""
-M_trr, M_trr_sym_3circl = transitive_reduction(A)
-print("Transitive reduction of the column domination relation matrix:")
-print(M_trr)
-print("3-circle closure of the symmetric version of the transitive reduction of the column domination relation matrix:")
-print(M_trr_sym_3circl)
-"""
 
 
 
@@ -112,14 +99,6 @@ def generate_random_matrix_dom(m, n):
                 A[:, j] = np.maximum(A[:, j], A[:, j + 1])
     return A
 
-"""
-# Example instance with execution
-m = 4
-n = 5
-A = generate_random_matrix(m, n)
-print("Random 0,1 matrix:")
-print(A)    
-"""  
     
     
 # Example instances with execution
