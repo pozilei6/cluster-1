@@ -85,6 +85,7 @@ def generate_random_matrix(m, n):
            np.unique(A, axis=0).shape[0] != m or np.unique(A, axis=1).shape[1] != n):
         A = np.random.choice([0, 1], size=(m, n), p=[0.7, 0.3])
     return A
+
 def generate_random_matrix_dom(m, n):
     A = np.random.choice([0, 1], size=(m, n), p=[0.7, 0.3])
     A[:, 0] = 1
@@ -95,6 +96,7 @@ def generate_random_matrix_dom(m, n):
     while (np.all(A == 0, axis=1).any() or np.all(A == 0, axis=0).any() or
            np.unique(A, axis=0).shape[0] != m or np.unique(A, axis=1).shape[1] != n):
         A = np.random.choice([0, 1], size=(m, n), p=[0.7, 0.3])
+        A[:, 0] = 1
         for j in range(n - 1):
             if np.random.random() < p_dom:
                 A[:, j] = np.maximum(A[:, j], A[:, j + 1])
