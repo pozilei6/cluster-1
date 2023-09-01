@@ -57,3 +57,101 @@ def compute_R_sta(A: np.ndarray, D: list, bit_le_D: int) -> list:
 
 print(compute_R_sta(A[range(4)], D, 20))
 ####################################################################################################################
+
+
+
+
+
+
+
+
+### bee colony... not working so far ---------------------------------------------------
+import numpy as np
+from functools import reduce
+
+def fitness(R, A):
+    m, n = A.shape
+    defa = 2**21 - 1
+    C = [reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+    return sum([(R[i] & C[j] == C[j]) == A[i, j] for i in range(m) for j in range(n)])
+
+
+
+
+
+def CS_PSO(fitness, A, D, n_particles=10, max_iter=1000):
+    m, n = A.shape
+    R = np.random.choice(D, size=(n_particles, m))
+    pbest = R.copy()
+    gbest = R[np.argmax([fitness(r, A) for r in R])]
+    v = np.zeros_like(R)
+    
+    for t in range(max_iter):
+        for i in range(n_particles):
+            v[i] = v[i] + 2 * np.random.rand() * (pbest[i] - R[i]) + 2 * np.random.rand() * (gbest - R[i])
+            R[i] = np.array([D[np.argmin(np.abs(d - (r + v_i)))] for d, r, v_i in zip(D, R[i], v[i])])
+            if fitness(R[i], A) > fitness(pbest[i], A):
+                pbest[i] = R[i]
+                print(pbest[i])
+                if fitness(pbest[i], A) > fitness(gbest, A):
+                    gbest = pbest[i]
+                    
+        # Chaotic search
+        if t % 10 == 0:
+            idx = np.random.randint(0, n_particles)
+            R[idx] = np.random.choice(D, size=m)
+            
+    return gbest
+
+
+
+# Example usage
+A = np.array([[1, 0, 1], [0, 1, 1], [1, 1, 0]])
+D = [0, 1]
+
+A = np.array([
+     [1,1,0,0,0], 
+     [0,1,1,0,0], 
+     [0,0,1,0,0], 
+     [0,0,0,0,1], 
+     [1,0,0,1,0]
+     ])
+     
+D = [7, 11, 19, 35, 67, 131, 13, 21, 37, 69, 133, 25, 41, 73, 137, 49, 81, 145, 97, 161, 193, 14, 22, 38,
+              70, 134, 26, 42, 74, 138, 50, 82, 146, 98, 162, 194, 28, 44, 76, 140, 52, 84, 148, 100, 164, 196, 56,
+              88, 152, 104, 168, 200, 112, 176, 208, 224]
+
+R_opt = CS_PSO(fitness, A, D)
+print(R_opt)
+
+for r in R_opt:
+    print(r in D)
+
+#---------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
