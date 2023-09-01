@@ -143,6 +143,49 @@ def CSP(A, D, coloring, bit_length=17):
     return s.check()
 
 
+
+
+#use this CSP() ---
+def CSP(A, D, coloring, bit_length=17):  
+
+    defa = 2 ** bit_length - 1
+    m, n = A.shape
+    s = Solver()
+    s.set("model.completion", True)
+    s.set("timeout", 8888)
+
+    C_ones = [2 ** p for p in range(bit_length)]
+    col_groups = [[j for j in range(n) if coloring[1][j] == col] for col in coloring[1]]
+
+    R = [BitVec(f"rs_{i + 1}", bit_length) for i in range(m)]
+    C = [BitVec(f"cs_{j + 1}", bit_length) for j in range(n)]
+    C1s = [BitVec(f"c1_{j + 1}", bit_length) for j in range(n)]
+    
+    Constr_D   = [Or([r == d for d in D]) for r in R]
+
+    Constr_C1s = [Or([c1s == c_one for c_one in C_ones]) for c1s in C1s]
+
+    Constr_same_C1s = [And([C1s[gr[0]] == C1s[gr[v]] for v in range(1, len(gr))]) for gr in col_groups if 1 < len(gr)]
+
+    Constr_diff_C1s = [Distinct([C1s[gr[0]] for gr in col_groups])]   
+
+    Constr_P = [C[j] & C1s[j] == C1s[j] for j in range(n)]
+    
+    Constr_C = [C[j] == reduce(lambda x,y: x & y, [R[i] for i in range(m) if A[i, j] == 1], defa) for j in range(n)]
+
+    Constr_npermit = [R[i] & C[j] != C[j] for i in range(m) for j in range(n) if A[i, j] == 0]
+
+    
+    s.add(Constr_D + Constr_C1s + Constr_same_C1s + Constr_diff_C1s + Constr_P + Constr_C + Constr_npermit)
+
+
+    #pb_co += [Implies(i_rs != -1, Implies(i_rs == i_drs, And(amb[i_drs][0] & cs == cs, rh & ch == ch)))]
+
+
+    return s.check()
+#------------------
+
+
 #make D---
 D = [7, 11, 19, 35, 67, 131, 13, 21, 37, 69, 133, 25, 41, 73, 137, 49, 81, 145, 97, 161, 193, 14, 22, 38,
               70, 134, 26, 42, 74, 138, 50, 82, 146, 98, 162, 194, 28, 44, 76, 140, 52, 84, 148, 100, 164, 196, 56,
