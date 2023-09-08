@@ -1,5 +1,9 @@
 # pip install python-constraint                     https://pypi.org/project/python-constraint/
 
+
+
+from functools import reduce
+
 def CSP_pyConstraints(A, D, bitlength=17):
     defa = 2 ** bitlength - 1
     m, n = A.shape
@@ -9,10 +13,8 @@ def CSP_pyConstraints(A, D, bitlength=17):
     R = [f"rs_{i + 1}" for i in range(m)]
     C = [f"cs_{j + 1}" for j in range(n)]
 
-    problem.addVariables(R, range(defa + 1))
+    problem.addVariables(R, D)
     problem.addVariables(C, range(defa + 1))
-
-    problem.addConstraint(InSetConstraint(D), R)
 
     for j in range(n):
         def constraint_func(*args):
@@ -36,7 +38,13 @@ def CSP_pyConstraints(A, D, bitlength=17):
         return [], []
 
 
+# test if not always [], []:-----------------------------
 
+
+R_sol,C_sol=CSP_pyConstraints(A,D)
+print(R_sol,C_sol)
+
+#---------------------------------------------------------
 
 
 # to be compared with 
