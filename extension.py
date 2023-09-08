@@ -1,29 +1,29 @@
-from z3 import* #Solver, BitVec, Or, reduce
+from z3 import* #Solver, BitVec, Or, reduce              # execute this in colab ---------------------------------------------------------------------------------------------------------
 import numpy as np
 
 def CSP_ex(A, A_ex, D, R_pr, C_pr, bitlength=17):
     defa = 2 ** bitlength - 1
     m, n = A.shape
     m_ex, n_ex = A_ex.shape
-    s = Solver()
-    s.set("model.completion", True)
-    s.set("timeout", 8888)
+    opt = Optimize()
+    opt.set("model.completion", True)
+    opt.set("timeout", 8888)
 
     R_ex = [BitVec(f"rs_{i + 1}", bitlength) for i in range(m_ex)]
     C_ex = [BitVec(f"cs_{j + 1}", bitlength) for j in range(n_ex)]
 
-    s.add([Or([r == d for d in D]) for r in R_ex])
+    opt.add([Or([r == d for d in D]) for r in R_ex])
 
     for j in range(n_ex):
-        s.add(C_ex[j] == reduce(lambda x,y: x & y, [R_ex[i] for i in range(m_ex) if A_ex[i, j] == 1], defa))
+        opt.add(C_ex[j] == reduce(lambda x,y: x & y, [R_ex[i] for i in range(m_ex) if A_ex[i, j] == 1], defa))
 
-    s.add([R_ex[i] & C_ex[j] != C_ex[j] for i in range(m_ex) for j in range(n_ex) if A_ex[i, j] == 0])
+    opt.add([R_ex[i] & C_ex[j] != C_ex[j] for i in range(m_ex) for j in range(n_ex) if A_ex[i, j] == 0])
 
     # Minimize the difference between R_pr and R_ex and between C_pr and C_ex
-    s.minimize(sum([R_pr[i] != R_ex[i] for i in range(m)]) + sum([C_pr[j] != C_ex[j] for j in range(n)]))
+    opt.minimize(sum([R_pr[i] != R_ex[i] for i in range(m)]) + sum([C_pr[j] != C_ex[j] for j in range(n)]))
 
-    if s.check() == sat:
-        model = s.model()
+    if opt.check() == sat:
+        model = opt.model()
         R_ex_sol = [model.evaluate(R_ex[i]).as_long() for i in range(m)]
         C_ex_sol = [model.evaluate(C_ex[j]).as_long() for j in range(n)]
         viol_R = [i for i in range(m) if R_pr[i] != R_ex_sol[i]]
@@ -71,7 +71,7 @@ def CSP(A, D, bitlength=17):
         return [], []
 
 
-def get_A_ex(A, A_add):
+def get_A_ex1(A, A_add):
     m, n = A.shape
     m_add, n_add = A_add.shape
     m_ex = m + m_add
@@ -82,8 +82,54 @@ def get_A_ex(A, A_add):
     return A_ex
 
 
-# execute for instance
+def get_A_ex(A, Inz_ex):  # User input, e.g. Inz_ex = [{9, 10}, {10}, {3, 10}]
+    m, n = A.shape
+    m_add = len(Inz_ex)
+    n_add = max(max(s) for s in Inz_ex)  # find the maximum index in Inz_ex
+    m_ex = m + m_add
+    n_ex = max(n, n_add)
+    A_ex = np.zeros((m_ex, n_ex), dtype=int)
+    A_ex[:m, :n] = A
 
+    # Construct A_add from Inz_ex
+    A_add = np.zeros((m_add, n_add), dtype=int)
+    for i in range(m_add):
+        for idx in Inz_ex[i]:
+            A_add[i, idx-1] = 1  # subtract 1 because indices in Inz_ex are 1-indexed
+
+    A_ex[m:, :n_add] = A_add
+
+    return A_ex
+
+
+# execute for instance
+D = [7, 11, 19, 35, 67, 131, 13, 21, 37, 69, 133, 25, 41, 73, 137, 49, 81, 145, 97, 161, 193, 14, 22, 38,
+              70, 134, 26, 42, 74, 138, 50, 82, 146, 98, 162, 194, 28, 44, 76, 140, 52, 84, 148, 100, 164, 196, 56,
+              88, 152, 104, 168, 200, 112, 176, 208, 224]
+A = np.array([
+     [0,0,1,1,0,0,0,0,0], # 0
+     [0,0,1,0,0,0,0,0,0], # 1
+     [0,1,1,0,0,0,0,0,0], # 2
+     [1,0,1,0,0,0,0,0,0], # 3
+     [0,0,0,0,1,1,0,0,0], # 4
+     [0,0,0,0,1,0,1,0,0], # 5
+     [0,0,0,0,0,0,0,1,0], # 6
+     [0,0,0,0,0,0,0,0,1]  # 7
+     ],dtype = int)
+A_add = np.array([
+     [0,0,0,0,0,0,0,0,1,1], # 8  7.1
+     [0,0,0,0,0,0,0,0,0,1], # 9
+     [0,0,1,0,0,0,0,0,0,1]  # 10
+     ],dtype = int)
+
+# make prev solution
+R, C = CSP(A, D, bitlength=8)
+
+# define extension
+A_ex = get_A_ex1(A, A_add)
+
+# make extension
+R_ex, C_ex = CSP_ex(A, A_ex, D, R, C, bitlength=8)    # ------------------------------------------------------------------------------------------------------------------------------
 
 
 
