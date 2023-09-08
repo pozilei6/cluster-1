@@ -1,7 +1,7 @@
 from z3 import* #Solver, BitVec, Or, reduce              # execute this in colab ---------------------------------------------------------------------------------------------------------
 import numpy as np
 
-def CSP_ex(A, A_ex, D, R_pr, C_pr, bitlength=17):
+def CSP_ex(A, A_ex, D, R_pr, C_pr, repl, bitlength=17): # repl are those range(m)-indices that get replaced
     defa = 2 ** bitlength - 1
     m, n = A.shape
     m_ex, n_ex = A_ex.shape
@@ -20,7 +20,9 @@ def CSP_ex(A, A_ex, D, R_pr, C_pr, bitlength=17):
     opt.add([R_ex[i] & C_ex[j] != C_ex[j] for i in range(m_ex) for j in range(n_ex) if A_ex[i, j] == 0])
 
     # Minimize the difference between R_pr and R_ex and between C_pr and C_ex
-    opt.minimize(sum([R_pr[i] != R_ex[i] for i in range(m)]) + sum([C_pr[j] != C_ex[j] for j in range(n)]))
+    # Exclude elements of R_pr corresponding to the first index in each tuple of repl from the minimization objective
+    excluded_indices = [t[0] for t in repl]
+    opt.minimize(sum([R_pr[i] != R_ex[i] for i in range(m) if i not in excluded_indices]) + sum([C_pr[j] != C_ex[j] for j in range(n)]))
 
     if opt.check() == sat:
         model = opt.model()
@@ -71,7 +73,7 @@ def CSP(A, D, bitlength=17):
         return [], []
 
 
-def get_A_ex1(A, A_add):
+def get_A_ex1(A, A_add): # instead of this, get_A_ex(A, Inz_ex) is used for user input Inz_ex
     m, n = A.shape
     m_add, n_add = A_add.shape
     m_ex = m + m_add
@@ -82,7 +84,7 @@ def get_A_ex1(A, A_add):
     return A_ex
 
 
-def get_A_ex(A, Inz_ex):  # User input, e.g. Inz_ex = [{9, 10}, {10}, {3, 10}]
+def get_A_ex(A, Inz_ex):  # User input, e.g. Inz_ex = [{9, 10}, {10}, {3, 10}], these are col-indices 1-indexed
     m, n = A.shape
     m_add = len(Inz_ex)
     n_add = max(max(s) for s in Inz_ex)  # find the maximum index in Inz_ex
